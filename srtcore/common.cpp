@@ -612,7 +612,8 @@ void LogDispatcher::CreateLogLinePrefix(std::ostringstream& serr)
         out_prefix = prefix;
     }
 
-    // Note: ThreadName::get needs a buffer of size min. ThreadName::BUFSIZE
+    static_assert((sizeof(tmp_buf) >= ThreadName::BUFSIZE),
+                  "ThreadName::get needs a buffer of size min. ThreadName::BUFSIZE");
     if ( !isset(SRT_LOGF_DISABLE_THREADNAME) && ThreadName::get(tmp_buf) )
     {
         serr << "/" << tmp_buf << out_prefix << ": ";
