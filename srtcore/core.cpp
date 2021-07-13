@@ -7341,6 +7341,13 @@ bool srt::CUDT::updateCC(ETransmissionEvent evt, const EventVariant arg)
         // This requests internal input rate sampling.
         if (m_config.llMaxBW == 0 && m_config.llInputBW == 0)
         {
+            /* When send buffer queue is almost full, the estimated input bitrate can be incorrect.
+             * There are two cases:
+             * 1. sendmsg() is blocked too long due to send buffer queue overflow, which leads to small input bitrate.
+             * 2. The application has accumulated some data due to sendmsg() blocking, when network condition changed
+             *    from bad to good, the estimated input bitrate can be too high than bitrate of video stream.
+             */
+            const bool almost_full =  m_pSndBuffer->getCurrBufSize() > m_config.iSndBufSize * 0.9;
             // Get auto-calculated input rate, Bytes per second
             const int64_t inputbw = m_pSndBuffer->getInputRate();
 
@@ -7351,8 +7358,12 @@ bool srt::CUDT::updateCC(ETransmissionEvent evt, const EventVariant arg)
              * and sendrate skyrockets for retransmission.
              * Keep previously set maximum in that case (inputbw == 0).
              */
-            if (inputbw >= 0)
+            if (!almost_full && inputbw >= 0)
                 m_CongCtl->updateBandwidth(0, withOverhead(std::max(m_config.llMinInputBW, inputbw))); // Bytes/sec
+            if (almost_full)
+                LOGC(inlog.Fatal,
+                     log << CONID() << "snd buf almost full, " << m_pSndBuffer->getCurrBufSize() << '/'
+                         << m_config.iSndBufSize);
         }
     }
 
